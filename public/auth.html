@@ -1,0 +1,297 @@
+// Firebase configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyBxaFAdnehL6mjudDozloC1j9CzqxEGa5g",
+    authDomain: "scanguard-ddb19.firebaseapp.com",
+    projectId: "scanguard-ddb19",
+    storageBucket: "scanguard-ddb19.firebasestorage.app",
+    messagingSenderId: "816528078956",
+    appId: "1:816528078956:web:5fd2bdfcdeebb935a44049"
+  };
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore(); // Initialize Firestore for user data
+
+// Auth state observer
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        // User is signed in
+        if (window.location.pathname.includes('login.html') || 
+            window.location.pathname.includes('signup.html')) {
+            window.location.href = '/dashboard.html';
+        }
+    } else {
+        // User is signed out
+        if (window.location.pathname.includes('dashboard.html')) {
+            window.location.href = '/login.html';
+        }
+    }
+});
+
+// Toast notification function
+function showToast(message, isError = true) {
+    const toast = document.getElementById('errorToast');
+    toast.textContent = message;
+    toast.style.background = isError ? '#ff4444' : '#00C851';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// Form validation functions
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidPassword(password) {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    let errorMessage = [];
+    if (password.length < minLength) errorMessage.push("at least 8 characters");
+    if (!hasUpperCase) errorMessage.push("an uppercase letter");
+    if (!hasLowerCase) errorMessage.push("a lowercase letter");
+    if (!hasNumbers) errorMessage.push("a number");
+    if (!hasSpecialChar) errorMessage.push("a special character");
+
+    return {
+        isValid: errorMessage.length === 0,
+        message: errorMessage.length > 0 ? 
+            `Password must contain ${errorMessage.join(", ")}` : ""
+    };
+}
+
+// Google Sign In Implementation
+function setupGoogleSignIn() {
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+    googleProvider.addScope('profile');
+    googleProvider.addScope('email');
+
+    const googleButtons = document.querySelectorAll('.btn-google');
+    
+    googleButtons.forEach(button => {
+        button.addEventListener('click', async () => {
+            try {
+                const result = await auth.signInWithPopup(googleProvider);
+                const user = result.user;
+                
+                // Check if this is a new user
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                
+                if (!userDoc.exists) {
+                    // Create new user document in Firestore
+                    await db.collection('users').doc(user.uid).set({
+                        displayName: user.displayName,
+                        email: user.email,
+                        photoURL: user.photoURL,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } else {
+                    // Update last login
+                    await db.collection('users').doc(user.uid).update({
+                        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+
+                showToast('Successfully signed in with Google!', false);
+                window.location.href = '/dashboard.html';
+            } catch (error) {
+                console.error('Google Sign In Error:', error);
+                showToast(error.message);
+            }
+        });
+    });
+}
+
+// Login form implementation
+function setupLoginForm() {
+    const loginForm = document.getElementById('loginForm');
+    const forgotPasswordLink = document.getElementById('forgotPassword');
+
+    if (!loginForm) return;
+
+    // Forgot Password Handler
+    forgotPasswordLink.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+
+        if (!email || !isValidEmail(email)) {
+            showToast('Please enter a valid email address');
+            return;
+        }
+
+        try {
+            await auth.sendPasswordResetEmail(email);
+            showToast('Password reset email sent! Check your inbox.', false);
+        } catch (error) {
+            showToast(error.message);
+        }
+    });
+
+    // Login Form Handler
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        
+        // Validate inputs
+        if (!isValidEmail(email)) {
+            showToast('Please enter a valid email address');
+            return;
+        }
+
+        try {
+            // Sign in user
+            const userCredential = await auth.signInWithEmailAndPassword(email, password);
+            
+            // Update last login in Firestore
+            await db.collection('users').doc(userCredential.user.uid).update({
+                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            showToast('Successfully logged in!', false);
+            
+            // Clear form
+            loginForm.reset();
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+                window.location.href = '/dashboard.html';
+            }, 1000);
+        } catch (error) {
+            let errorMessage = 'Login failed. Please try again.';
+            
+            switch (error.code) {
+                case 'auth/user-not-found':
+                    errorMessage = 'No account found with this email.';
+                    break;
+                case 'auth/wrong-password':
+                    errorMessage = 'Incorrect password.';
+                    break;
+                case 'auth/too-many-requests':
+                    errorMessage = 'Too many failed attempts. Please try again later.';
+                    break;
+                default:
+                    errorMessage = error.message;
+            }
+            
+            showToast(errorMessage);
+        }
+    });
+}
+
+// Signup form implementation
+function setupSignupForm() {
+    const signupForm = document.getElementById('signupForm');
+    if (!signupForm) return;
+
+    signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const email = document.getElementById('signupEmail').value;
+        const password = document.getElementById('signupPassword').value;
+        const mobile = document.getElementById('mobile').value;
+
+        // Validate inputs
+        if (!username || username.length < 3) {
+            showToast('Username must be at least 3 characters long');
+            return;
+        }
+
+        if (!isValidEmail(email)) {
+            showToast('Please enter a valid email address');
+            return;
+        }
+
+        const passwordCheck = isValidPassword(password);
+        if (!passwordCheck.isValid) {
+            showToast(passwordCheck.message);
+            return;
+        }
+
+        if (!mobile.match(/^\d{10}$/)) {
+            showToast('Please enter a valid 10-digit mobile number');
+            return;
+        }
+
+        try {
+            // Create user with email and password
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            const user = userCredential.user;
+
+            // Update user profile
+            await user.updateProfile({
+                displayName: username
+            });
+
+            // Create user document in Firestore
+            await db.collection('users').doc(user.uid).set({
+                uid: user.uid,
+                displayName: username,
+                email: email,
+                mobile: mobile,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Send email verification
+            await user.sendEmailVerification();
+
+            showToast('Account created successfully! Please verify your email.', false);
+            
+            // Clear form
+            signupForm.reset();
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+                window.location.href = '/dashboard.html';
+            }, 1500);
+        } catch (error) {
+            let errorMessage = 'Signup failed. Please try again.';
+            
+            switch (error.code) {
+                case 'auth/email-already-in-use':
+                    errorMessage = 'This email is already registered.';
+                    break;
+                case 'auth/invalid-email':
+                    errorMessage = 'Please enter a valid email address.';
+                    break;
+                case 'auth/operation-not-allowed':
+                    errorMessage = 'Email/password accounts are not enabled.';
+                    break;
+                case 'auth/weak-password':
+                    errorMessage = 'Please choose a stronger password.';
+                    break;
+                default:
+                    errorMessage = error.message;
+            }
+            
+            showToast(errorMessage);
+        }
+    });
+}
+
+// Initialize all auth features
+document.addEventListener('DOMContentLoaded', () => {
+    setupGoogleSignIn();
+    setupLoginForm();
+    setupSignupForm();
+});
+
+// Logout functionality
+function logout() {
+    auth.signOut()
+        .then(() => {
+            showToast('Successfully logged out!', false);
+            window.location.href = '/login.html';
+        })
+        .catch(error => showToast('Error logging out: ' + error.message));
+}
+
+// Export logout function for use in dashboard
+window.logout = logout;

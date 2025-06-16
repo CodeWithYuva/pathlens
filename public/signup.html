@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Modern Auth System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="wave-container">
+        <div class="wave"></div>
+    </div>
+
+    <div class="auth-container">
+        <div class="auth-card">
+            <h2>Create Account</h2>
+            <p class="subtitle">Sign up for free</p>
+
+            <form id="signupForm">
+                <div class="input-group">
+                    <input type="text" id="username" required>
+                    <label for="username">Username</label>
+                </div>
+
+                <div class="input-group">
+                    <input type="email" id="signupEmail" required>
+                    <label for="signupEmail">Email</label>
+                </div>
+
+                <div class="input-group">
+                    <input type="password" id="signupPassword" required>
+                    <label for="signupPassword">Password</label>
+                </div>
+
+                <div class="input-group">
+                    <input type="tel" id="mobile" pattern="[0-9]{10}" required>
+                    <label for="mobile">Mobile Number</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Sign Up</button>
+                <button type="button" class="btn btn-google" id="googleSignup">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo">
+                    Continue with Google
+                </button>
+            </form>
+
+            <p class="switch-auth">
+                Already have an account? <a href="login.html">Login</a>
+            </p>
+        </div>
+    </div>
+
+    <div id="errorToast" class="toast"></div>
+
+    <!-- Import Firebase SDKs -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile }
+            from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxaFAdnehL6mjudDozloC1j9CzqxEGa5g",
+            authDomain: "scanguard-ddb19.firebaseapp.com",
+            projectId: "scanguard-ddb19",
+            storageBucket: "scanguard-ddb19.firebasestorage.app",
+            messagingSenderId: "816528078956",
+            appId: "1:816528078956:web:5fd2bdfcdeebb935a44049"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // Show toast message function
+        function showToast(message, isError = true) {
+            const toast = document.getElementById('errorToast');
+            toast.textContent = message;
+            toast.style.background = isError ? '#ff4444' : '#00C851';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Signup form handler
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredential.user, {
+                    displayName: username
+                });
+                showToast('Account created successfully!', false);
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+            } catch (error) {
+                showToast(error.message);
+            }
+        });
+
+        // Google sign-up handler
+        document.getElementById('googleSignup').addEventListener('click', async () => {
+            try {
+                const result = await signInWithPopup(auth, provider);
+                showToast('Google sign-up successful!', false);
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+            } catch (error) {
+                showToast(error.message);
+            }
+        });
+    </script>
+</body>
+
+</html>

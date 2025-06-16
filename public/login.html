@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Modern Auth System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    
+    <div class="wave-container">
+        <div class="wave"></div>
+    </div>
+
+    <div class="auth-container">
+        <div class="auth-card">
+            <h2>Welcome Back</h2>
+            <p class="subtitle">Please login to your account</p>
+
+            <form id="loginForm" >
+                <div class="input-group">
+                    <input type="email" id="loginEmail" required>
+                    <label for="loginEmail">Email</label>
+                </div>
+
+                <div class="input-group">
+                    <input type="password" id="loginPassword" required>
+                    <label for="loginPassword">Password</label>
+                </div>
+
+                <div class="forgot-password">
+                    <a href="#" id="forgotPassword">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Login</button>
+                <button type="button" class="btn btn-google" id="googleLogin">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo">
+                    Continue with Google
+                </button>
+            </form>
+
+            <p class="switch-auth">
+                Don't have an account? <a href="signup.html">Sign Up</a>
+            </p>
+        </div>
+    </div>
+
+    <div id="errorToast" class="toast"></div>
+
+    <!-- Import Firebase -->
+    <script type="module">
+        // Import Firebase functions
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import {
+            getAuth,
+            signInWithEmailAndPassword,
+            GoogleAuthProvider,
+            signInWithPopup,
+            sendPasswordResetEmail
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        // Your Firebase configuration - Replace with your config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxaFAdnehL6mjudDozloC1j9CzqxEGa5g",
+            authDomain: "scanguard-ddb19.firebaseapp.com",
+            projectId: "scanguard-ddb19",
+            storageBucket: "scanguard-ddb19.firebasestorage.app",
+            messagingSenderId: "816528078956",
+            appId: "1:816528078956:web:5fd2bdfcdeebb935a44049"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
+
+        // Toast notification function
+        function showToast(message, isError = true) {
+            const toast = document.getElementById('errorToast');
+            toast.textContent = message;
+            toast.style.background = isError ? '#ff4444' : '#00C851';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Email validation function
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            // Validate email
+            if (!isValidEmail(email)) {
+                showToast('Please enter a valid email address');
+                return;
+            }
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                showToast('Login successful!', false);
+
+                // Store user info in localStorage if needed
+                localStorage.setItem('userEmail', userCredential.user.email);
+
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+            } catch (error) {
+                let errorMessage = 'Login failed. Please try again.';
+
+                switch (error.code) {
+                    case 'auth/user-not-found':
+                        errorMessage = 'No account found with this email.';
+                        break;
+                    case 'auth/wrong-password':
+                        errorMessage = 'Incorrect password.';
+                        break;
+                    case 'auth/too-many-requests':
+                        errorMessage = 'Too many failed attempts. Please try again later.';
+                        break;
+                    case 'auth/invalid-credential':
+                        errorMessage = 'Invalid email or password.';
+                        break;
+                    default:
+                        errorMessage = error.message;
+                }
+
+                showToast(errorMessage);
+            }
+        });
+
+        // Handle Google Sign In
+        document.getElementById('googleLogin').addEventListener('click', async () => {
+            try {
+                const result = await signInWithPopup(auth, googleProvider);
+                showToast('Google sign-in successful!', false);
+
+                // Store user info if needed
+                localStorage.setItem('userEmail', result.user.email);
+
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+            } catch (error) {
+                showToast('Google sign-in failed: ' + error.message);
+            }
+        });
+
+        // Handle Forgot Password
+        document.getElementById('forgotPassword').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+
+            if (!email || !isValidEmail(email)) {
+                showToast('Please enter a valid email address');
+                return;
+            }
+
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showToast('Password reset email sent! Check your inbox.', false);
+            } catch (error) {
+                showToast('Failed to send reset email: ' + error.message);
+            }
+        });
+
+        // Check if user is already logged in
+      
+    </script>
+</body>
+
+</html>
