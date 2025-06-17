@@ -1,0 +1,7 @@
+Flask
+Flask-SQLAlchemy
+Flask-Bcrypt
+Flask-JWT-Extended
+Flask-Mail
+itsdangerous
+psycopg2-binary
